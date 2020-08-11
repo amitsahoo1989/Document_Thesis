@@ -1,0 +1,94 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+#install.packages('ggplot2')
+#install.packages('ggpubr')
+#install.packages('dplyr')
+#install.packages('mice', dependencies = TRUE)
+
+
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(mice)
+
+
+dat <- read.csv('/cloud/project/nd_day0_1_2_3_4_imp_del_processed.csv',header=TRUE, sep=",")
+head(dat)
+str(dat)
+
+dat_bkp<-dat
+summary(dat)
+
+
+###creating historam of a attribute#####
+hist(dat$day1_MPH_max_wind, breaks=200, main="With breaks=20")
+
+
+#####conveting the vaiable to catagorical#######
+
+dat <- dat %>%
+  mutate(
+    FireSeason = as.factor(FireSeason))
+
+##library(dplyr) 
+dat <- dat %>%
+  mutate(
+    month = as.factor(month))
+
+##library(dplyr) 
+dat <- dat %>%
+  mutate(
+    PrepLevel = as.factor(PrepLevel))
+
+#summary(dat)
+
+
+####droping the unnecessay columns####
+drops <- c("SitReportDate")
+dat<-dat[ , !(names(dat) %in% drops)]
+
+summary(dat)
+
+
+######applying mice########
+p<-function(x){sum(is.na(x))/length(x)*100}
+apply(dat,2,p)
+
+md.pattern(dat)
+md.pairs(dat)
+#marginplot(dat[,c('individual_total_acres','day0_MPH_max_wind')])
+
+impute <- mice(dat[,],m=3,seed=123)##,method = 'rf')
+print(impute)
+
+impute$imp$day0_MPH_max_wind                   
+
+#stripplot(impute,pch=20, cex=1.2)
+
+xyplot(impute,day0_MPH_max_wind ~ day0_F_Mean_dew_point | .imp, pch=20, cex=1.4)
+
+new_dat<-complete(impute,1)
+
+#new_dat$ID<-dat_bkp$ID
+#new_dat$SitReportDate<-dat_bkp$SitReportDate
+#new_dat$TotalFires<-dat_bkp$TotalFires
+#new_dat$TotalAcres<-dat_bkp$TotalAcres
+
+##new_dat1 <- cbind(new_dat, dat[!names(dat_bkp) %in% names(new_dat)])
+
+
+
+
+write.csv(new_dat,'/cloud/project/nd_day0_1_2_3_4mice.csv')
+
+
+hist(new_dat$individual_fire_num, breaks=200, main="With breaks=20")
+
+
+ggplot(new_dat) + geom_bar(aes(x = month))
+
+OutVals = boxplot(new_dat$day1_MPH_max_wind )
+which(x %in% OutVals)
